@@ -2,34 +2,60 @@
 include('includes/db.php');
 include('header.php');
 
-// Buscar todos os chamados
-$sql = "SELECT Chamados.id, Clientes.nome AS cliente_nome, Chamados.descricao, Chamados.criticidade, Chamados.status 
-        FROM Chamados
-        JOIN Clientes ON Chamados.cliente_id = Clientes.id";
-$result = $conn->query($sql);
+// Verificar se a exclusão foi requisitada
+if (isset($_GET['delete_id'])) {
+    $delete_id = $_GET['delete_id'];
 
-echo "<h2>Lista de Chamados</h2>";
-echo "<table>";
-echo "<tr><th>Cliente</th><th>Descrição</th><th>Criticidade</th><th>Status</th><th>Ações</th></tr>";
-
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        echo "<tr>
-                <td>" . $row['cliente_nome'] . "</td>
-                <td>" . $row['descricao'] . "</td>
-                <td>" . $row['criticidade'] . "</td>
-                <td>" . $row['status'] . "</td>
-                <td>
-                    <a href='editar_chamado.php?id=" . $row['id'] . "'>Editar</a> |
-                    <a href='excluir_chamado.php?id=" . $row['id'] . "' onclick='return confirm(\"Tem certeza que deseja excluir este chamado?\")'>Excluir</a>
-                </td>
-              </tr>";
+    // Query de exclusão no banco de dados
+    $sql = "DELETE FROM Chamados WHERE id = $delete_id";
+    if ($conn->query($sql) === TRUE) {
+        echo "Chamado excluído com sucesso!";
+    } else {
+        echo "Erro ao excluir chamado: " . $conn->error;
     }
-    echo "</table>";
-} else {
-    echo "Nenhum chamado encontrado.";
+
+    // Redirecionar para evitar múltiplas requisições GET
+    header('Location: listar_chamados.php');
+    exit;
 }
 
-$conn->close();
+// Query para listar chamados
+$sql = "SELECT Chamados.id, Chamados.descricao, Chamados.criticidade, Chamados.status, Clientes.nome AS cliente_nome, Colaboradores.nome AS colaborador_nome 
+        FROM Chamados 
+        LEFT JOIN Clientes ON Chamados.cliente_id = Clientes.id 
+        LEFT JOIN Colaboradores ON Chamados.colaborador_id = Colaboradores.id";
+$result = $conn->query($sql);
+
 ?>
 
+<h1>Lista de Chamados</h1>
+<table border="1">
+    <tr>
+        <th>ID</th>
+        <th>Descrição</th>
+        <th>Criticidade</th>
+        <th>Status</th>
+        <th>Cliente</th>
+        <th>Colaborador</th>
+        <th>Ações</th>
+    </tr>
+    <?php while ($row = $result->fetch_assoc()) { ?>
+        <tr>
+            <td><?php echo $row['id']; ?></td>
+            <td><?php echo $row['descricao']; ?></td>
+            <td><?php echo ucfirst($row['criticidade']); ?></td>
+            <td><?php echo ucfirst($row['status']); ?></td>
+            <td><?php echo $row['cliente_nome']; ?></td>
+            <td><?php echo $row['colaborador_nome'] ? $row['colaborador_nome'] : 'Não atribuído'; ?></td>
+            <td>
+                <a href="editar_chamado.php?id=<?php echo $row['id']; ?>">Editar</a>
+                |
+                <a href="listar_chamados.php?delete_id=<?php echo $row['id']; ?>" onclick="return confirm('Tem certeza que deseja excluir este chamado?');">Excluir</a>
+            </td>
+        </tr>
+    <?php } ?>
+</table>
+
+<?php
+$conn->close();
+?>
